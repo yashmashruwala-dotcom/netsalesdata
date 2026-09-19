@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Net Sales Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --bg-page: #FFFBFB;
+    --bg-soft: #FBEFF0;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --border: #F2DEE0;
+    --border-strong: #E7C1C5;
+    --red-900: #611820;
+    --red-700: #8C2331;
+    --red-600: #AD2E3E;
+    --red-500: #C0495A;
+    --red-400: #D98894;
+    --red-200: #F3C7CC;
+    --red-100: #FBEBEC;
+    --ink: #34282A;
+    --ink-soft: #86696D;
+    --ink-faint: #B79EA1;
+    --positive: #8C2331;
+    --negative: #B98089;
+    --shadow-sm: 0 1px 2px rgba(97, 24, 32, 0.06);
+    --shadow-md: 0 6px 20px -8px rgba(97, 24, 32, 0.16), 0 2px 6px rgba(97, 24, 32, 0.05);
+    --font-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --radius: 6px;
+    --radius-lg: 14px;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #251E1F;
+      --bg-page: #1F1919;
+      --bg-soft: #2C2223;
+      --surface: #2A2223;
+      --surface-raised: #302626;
+      --border: #4C3739;
+      --border-strong: #5D4245;
+      --red-900: #F4CDD1;
+      --red-700: #EAABB1;
+      --red-600: #E28D96;
+      --red-500: #D67C87;
+      --red-400: #C56D78;
+      --red-200: #6B4247;
+      --red-100: #3B2729;
+      --ink: #F1E6E7;
+      --ink-soft: #C7B2B4;
+      --ink-faint: #8E7679;
+      --positive: #EFA8AF;
+      --negative: #93777A;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+      --shadow-md: 0 10px 26px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #251E1F;
+    --bg-page: #1F1919;
+    --bg-soft: #2C2223;
+    --surface: #2A2223;
+    --surface-raised: #302626;
+    --border: #4C3739;
+    --border-strong: #5D4245;
+    --red-900: #F4CDD1;
+    --red-700: #EAABB1;
+    --red-600: #E28D96;
+    --red-500: #D67C87;
+    --red-400: #C56D78;
+    --red-200: #6B4247;
+    --red-100: #3B2729;
+    --ink: #F1E6E7;
+    --ink-soft: #C7B2B4;
+    --ink-faint: #8E7679;
+    --positive: #EFA8AF;
+    --negative: #93777A;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 10px 26px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 20px 28px 64px; }
+
+  /* ---------- Theme toggle (top left) ---------- */
+  .theme-toggle {
+    position: sticky;
+    top: 14px;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--red-700);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 6px 13px 6px 11px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 10px;
+    z-index: 5;
+  }
+  .theme-toggle:hover { background: var(--red-100); }
+  .theme-toggle .icon { font-size: 13px; line-height: 1; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-bottom: 26px;
+    margin-bottom: 26px;
+    position: relative;
+  }
+  .topbar::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--red-400), var(--border) 55%, transparent);
+  }
+  .brand { display: flex; gap: 14px; align-items: flex-start; }
+  .brand .mark {
+    width: 4px; align-self: stretch; min-height: 46px;
+    background: linear-gradient(180deg, var(--red-600), var(--red-300, var(--red-400)));
+    border-radius: 3px; flex: 0 0 auto;
+  }
+  .brand h1 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 27px;
+    color: var(--red-900);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13.5px; max-width: 48ch; }
+
+  /* ---------- Upload panel (top right) ---------- */
+  .upload-card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 18px 20px;
+    width: 330px;
+    flex: 0 0 auto;
+  }
+  .upload-card h2 {
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    color: var(--red-700);
+    margin: 0 0 12px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .upload-card h2::before {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red-500); display: inline-block;
+  }
+  .field-row { display: flex; gap: 8px; margin-bottom: 9px; }
+  .field-row > * { flex: 1; }
+  .lock-status { font-size: 11.5px; color: var(--ink-soft); margin: -3px 0 9px; }
+  .lock-status.unlocked { color: var(--red-700); font-weight: 600; }
+  select, input[type="number"], input[type="text"] {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 7px 9px;
+    width: 100%;
+  }
+  select:focus, input:focus { outline: 2px solid var(--red-400); outline-offset: 1px; }
+  .file-drop {
+    display: block;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--bg-soft);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .file-drop:hover { border-color: var(--red-500); }
+  .file-drop input { display: none; }
+  .file-drop.has-file { color: var(--red-700); border-color: var(--red-500); border-style: solid; background: var(--red-100); }
+  .btn {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    border-radius: var(--radius);
+    padding: 9px 14px;
+    cursor: pointer;
+    color: #fff;
+    background: var(--red-600);
+    width: 100%;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+  .btn:hover { background: var(--red-700); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { background: var(--ink-faint); cursor: not-allowed; box-shadow: none; }
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--red-700);
+    border: 1px solid var(--border-strong);
+    width: auto;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    border-radius: 999px;
+    box-shadow: none;
+  }
+  .btn-ghost:hover { background: var(--red-100); }
+  .status-line { font-size: 12px; margin-top: 9px; min-height: 16px; }
+  .status-line.err { color: var(--red-700); }
+  .status-line.ok { color: var(--ink-soft); }
+
+  .months-list { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .months-list h3 { font-size: 11px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; margin: 0 0 8px; }
+  .month-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; padding: 5px 2px; color: var(--ink);
+    border-bottom: 1px solid var(--bg-soft);
+  }
+  .month-chip:last-child { border-bottom: none; }
+  .month-chip .del { font-size: 11px; color: var(--ink-faint); background: none; border: none; cursor: pointer; padding: 3px 8px; border-radius: 999px; }
+  .month-chip .del:hover { color: var(--red-700); background: var(--red-100); }
+  .month-chip .del.confirm { color: #fff; background: var(--red-600); }
+
+  /* ---------- Toolbar / summary ---------- */
+  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  .month-select-wrap label { display: block; font-size: 11px; color: var(--ink-soft); margin-bottom: 4px; letter-spacing: 0.02em; }
+  .month-select-wrap select {
+    min-width: 220px; font-size: 14.5px; font-weight: 600; color: var(--red-900);
+    padding: 9px 12px; border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  }
+  .empty-note { color: var(--ink-soft); font-size: 13.5px; background: var(--surface-raised); border: 1px solid var(--border); padding: 16px 18px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .summary-card {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md); padding: 16px 18px 15px; border-left: 3px solid var(--red-500);
+  }
+  .summary-card .label { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 8px; }
+  .summary-card .value { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--red-900); letter-spacing: -0.01em; }
+  .summary-card .value.neg { color: var(--negative); }
+  .summary-card .sub { font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+
+  /* ---------- Charts ---------- */
+  .chart-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .chart-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 18px 20px; }
+  .chart-card h3 { font-family: var(--font-serif); font-size: 14px; font-weight: 600; color: var(--red-900); margin: 0 0 12px; }
+  .chart-card .chart-box { position: relative; height: 230px; }
+
+  /* ---------- Table ---------- */
+  .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  .result-count { font-size: 12.5px; color: var(--ink-soft); }
+  .table-scroll {
+    overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface-raised); box-shadow: var(--shadow-md);
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--red-700);
+    background: var(--bg-soft);
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border-strong);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead tr:first-child th:first-child { border-top-left-radius: var(--radius-lg); }
+  thead tr:first-child th:last-child { border-top-right-radius: var(--radius-lg); }
+  thead th .arrow { font-size: 10px; color: var(--red-500); margin-left: 4px; }
+  thead tr.filter-row th { cursor: default; padding: 7px 9px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  thead tr.filter-row select, thead tr.filter-row input { font-size: 12px; padding: 5px 7px; }
+  .num-filter { display: flex; gap: 4px; }
+  .num-filter input { width: 62px; }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: var(--bg-soft); }
+  tbody tr:hover { background: var(--red-100); }
+  td.num, th.num { text-align: right; font-family: var(--font-mono); }
+  td.scheme { white-space: normal; max-width: 320px; }
+  .ns-pos { color: var(--positive); font-weight: 600; }
+  .ns-neg { color: var(--negative); font-weight: 600; }
+  .ns-na { color: var(--ink-faint); font-style: italic; font-weight: 400; }
+
+  .pagination { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 12px; font-size: 12.5px; color: var(--ink-soft); }
+  .pagination button {
+    background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 999px;
+    padding: 5px 13px; cursor: pointer; font-size: 12.5px; color: var(--ink); box-shadow: var(--shadow-sm);
+  }
+  .pagination button:hover:not(:disabled) { background: var(--red-100); }
+  .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .access-banner {
+    background: var(--red-100); border: 1px solid var(--border-strong); color: var(--red-900);
+    border-radius: var(--radius); padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .upload-card { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" id="themeToggle" type="button">
+    <span class="icon" id="themeIcon">🌙</span><span id="themeLabel">Dark mode</span>
+  </button>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>Net Sales Dashboard</h1>
+        <p>Monthly industry AUM &amp; NAV data, resolved into scheme-level net sales across AMCs and categories.</p>
+      </div>
+    </div>
+
+    <div class="upload-card">
+      <h2>Upload monthly data</h2>
+      <div class="field-row pin-row" id="pinRow">
+        <input type="password" id="pinInput" placeholder="Upload PIN" autocomplete="off">
+      </div>
+      <div class="lock-status" id="lockStatus">🔒 Enter your PIN to enable uploads</div>
+      <div class="field-row">
+        <select id="uploadMonth"></select>
+        <input type="number" id="uploadYear" placeholder="Year" min="2000" max="2100">
+      </div>
+      <label class="file-drop" id="fileDrop">
+        <span id="fileDropLabel">Choose Excel file (.xlsx / .xls / .csv)</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      </label>
+      <button class="btn" id="uploadBtn" disabled>Upload / replace this month</button>
+      <div class="status-line" id="uploadStatus"></div>
+      <div class="months-list">
+        <h3 id="monthsListTitle">Uploaded months</h3>
+        <div id="monthsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="accessBanner" style="display:none" class="access-banner"></div>
+
+  <div class="toolbar">
+    <div class="month-select-wrap">
+      <label for="monthSelect">Viewing month</label>
+      <select id="monthSelect"></select>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-ghost" id="exportBtn" style="display:none">Export view as CSV</button>
+  </div>
+
+  <div id="emptyState" class="empty-note" style="display:none"></div>
+
+  <div id="dashboardBody" style="display:none">
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Net sales by category</h3>
+        <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Top 10 AMCs by net sales</h3>
+        <div class="chart-box"><canvas id="amcChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="table-toolbar">
+      <div class="result-count" id="resultCount"></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr id="headerRow"></tr>
+          <tr class="filter-row" id="filterRow"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var CHUNK_SIZE = 400;
+  var REQUIRED_HEADERS = ['amc name', 'scheme name', 'category', 'aum', 'nav'];
+
+  var columns = [
+    { key: 'amc', label: 'AMC Name', type: 'string' },
+    { key: 'scheme', label: 'Scheme Name', type: 'string' },
+    { key: 'category', label: 'Category', type: 'string' },
+    { key: 'aum', label: 'AUM', type: 'number' },
+    { key: 'nav', label: 'NAV', type: 'number' },
+    { key: 'netSales', label: 'Net Sales', type: 'number' }
+  ];
+
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAis0xCBQTYnYp_XlUUGNvvQCSOHv5xQoc",
+    authDomain: "industry-nest-sales.firebaseapp.com",
+    projectId: "industry-nest-sales",
+    storageBucket: "industry-nest-sales.firebasestorage.app",
+    messagingSenderId: "586573329640",
+    appId: "1:586573329640:web:8750ad42c83ad46c63c55d"
+  };
+  var EDITOR_EMAIL = 'uploader@industry-nest-sales.local';
+
+  var state = {
+    db: null,
+    auth: null,
+    isEditor: false,
+    monthsMeta: [],     // [{id, year, month, monthLabel, rowCount, chunkCount}], ascending
+    selectedMonthKey: null,
+    currentRows: [],     // computed rows for selected month (with netSales)
+    filters: { amc: 'all', category: 'all', schemeText: '', aumMin: '', aumMax: '', navMin: '', navMax: '', netMin: '', netMax: '' },
+    sort: { key: 'netSales', dir: 'desc' },
+    page: 1,
+    pageSize: 50,
+    deleteConfirmId: null,
+    categoryChart: null,
+    amcChart: null
+  };
+
+  // ---------------- utilities ----------------
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function monthKey(year, month) { return year + '-' + pad2(month); }
+
+  function monthLabelFor(year, month) { return MONTH_NAMES[month - 1] + ' ' + year; }
+
+  function fmtNum(n, decimals) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    var d = decimals === undefined ? 2 : decimals;
+    var neg = n < 0;
+    var abs = Math.abs(n);
+    var fixed = abs.toFixed(d);
+    var parts = fixed.split('.');
+    var intPart = parts[0];
+    var last3 = intPart.length > 3 ? intPart.slice(-3) : intPart;
+    var rest = intPart.length > 3 ? intPart.slice(0, -3) : '';
+    var grouped = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3 : last3;
+    var out = grouped + (d > 0 ? '.' + parts[1] : '');
+    return (neg ? '-' : '') + out;
+  }
+
+  function normHeader(h) { return String(h || '').trim().toLowerCase(); }
+
+  function schemeKey(amc, scheme) {
+    return normHeader(amc) + '||' + normHeader(scheme);
+  }
+
+  function setStatus(msg, kind) {
+    var el = document.getElementById('uploadStatus');
+    el.textContent = msg || '';
+    el.className = 'status-line' + (kind ? ' ' + kind : '');
+  }
+
+  // ---------------- firebase init ----------------
+  function initFirebase() {
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      state.auth = firebase.auth();
+      state.db = firebase.firestore();
+    } catch (e) {
+      showBanner('Could not connect to the data service (' + (e && e.message ? e.message : 'unknown error') + '). Check your internet connection and reload.');
+      return;
+    }
+
+    document.getElementById('exportBtn').style.display = 'inline-block';
+
+    state.auth.onAuthStateChanged(function (user) {
+      state.isEditor = !!user;
+      updateLockUi();
+      renderMonthsList();
+    });
+
+    subscribeMonths();
+  }
+
+  function updateLockUi() {
+    var lock = document.getElementById('lockStatus');
+    var pinRow = document.getElementById('pinRow');
+    if (state.isEditor) {
+      lock.textContent = '🔓 Unlocked — you can upload and remove months';
+      lock.classList.add('unlocked');
+      pinRow.style.display = 'none';
+    } else {
+      lock.textContent = '🔒 Enter your PIN to enable uploads';
