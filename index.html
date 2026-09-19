@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Net Sales Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --bg-page: #FFFBFB;
+    --bg-soft: #FBEFF0;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --border: #F2DEE0;
+    --border-strong: #E7C1C5;
+    --red-900: #611820;
+    --red-700: #8C2331;
+    --red-600: #AD2E3E;
+    --red-500: #C0495A;
+    --red-400: #D98894;
+    --red-200: #F3C7CC;
+    --red-100: #FBEBEC;
+    --ink: #34282A;
+    --ink-soft: #86696D;
+    --ink-faint: #B79EA1;
+    --positive: #8C2331;
+    --negative: #B98089;
+    --shadow-sm: 0 1px 2px rgba(97, 24, 32, 0.06);
+    --shadow-md: 0 6px 20px -8px rgba(97, 24, 32, 0.16), 0 2px 6px rgba(97, 24, 32, 0.05);
+    --font-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --radius: 6px;
+    --radius-lg: 14px;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #251E1F;
+      --bg-page: #1F1919;
+      --bg-soft: #2C2223;
+      --surface: #2A2223;
+      --surface-raised: #302626;
+      --border: #4C3739;
+      --border-strong: #5D4245;
+      --red-900: #F4CDD1;
+      --red-700: #EAABB1;
+      --red-600: #E28D96;
+      --red-500: #D67C87;
+      --red-400: #C56D78;
+      --red-200: #6B4247;
+      --red-100: #3B2729;
+      --ink: #F1E6E7;
+      --ink-soft: #C7B2B4;
+      --ink-faint: #8E7679;
+      --positive: #EFA8AF;
+      --negative: #93777A;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+      --shadow-md: 0 10px 26px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #251E1F;
+    --bg-page: #1F1919;
+    --bg-soft: #2C2223;
+    --surface: #2A2223;
+    --surface-raised: #302626;
+    --border: #4C3739;
+    --border-strong: #5D4245;
+    --red-900: #F4CDD1;
+    --red-700: #EAABB1;
+    --red-600: #E28D96;
+    --red-500: #D67C87;
+    --red-400: #C56D78;
+    --red-200: #6B4247;
+    --red-100: #3B2729;
+    --ink: #F1E6E7;
+    --ink-soft: #C7B2B4;
+    --ink-faint: #8E7679;
+    --positive: #EFA8AF;
+    --negative: #93777A;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 10px 26px -10px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 20px 28px 64px; }
+
+  /* ---------- Theme toggle (top left) ---------- */
+  .theme-toggle {
+    position: sticky;
+    top: 14px;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--red-700);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 6px 13px 6px 11px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 10px;
+    z-index: 5;
+  }
+  .theme-toggle:hover { background: var(--red-100); }
+  .theme-toggle .icon { font-size: 13px; line-height: 1; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-bottom: 26px;
+    margin-bottom: 26px;
+    position: relative;
+  }
+  .topbar::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--red-400), var(--border) 55%, transparent);
+  }
+  .brand { display: flex; gap: 14px; align-items: flex-start; }
+  .brand .mark {
+    width: 4px; align-self: stretch; min-height: 46px;
+    background: linear-gradient(180deg, var(--red-600), var(--red-300, var(--red-400)));
+    border-radius: 3px; flex: 0 0 auto;
+  }
+  .brand h1 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 27px;
+    color: var(--red-900);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13.5px; max-width: 48ch; }
+
+  /* ---------- Upload panel (top right) ---------- */
+  .upload-card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 18px 20px;
+    width: 330px;
+    flex: 0 0 auto;
+  }
+  .upload-card h2 {
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    color: var(--red-700);
+    margin: 0 0 12px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .upload-card h2::before {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red-500); display: inline-block;
+  }
+  .field-row { display: flex; gap: 8px; margin-bottom: 9px; }
+  .field-row > * { flex: 1; }
+  .lock-status { font-size: 11.5px; color: var(--ink-soft); margin: -3px 0 9px; }
+  .lock-status.unlocked { color: var(--red-700); font-weight: 600; }
+  select, input[type="number"], input[type="text"] {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 7px 9px;
+    width: 100%;
+  }
+  select:focus, input:focus { outline: 2px solid var(--red-400); outline-offset: 1px; }
+  .file-drop {
+    display: block;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--bg-soft);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .file-drop:hover { border-color: var(--red-500); }
+  .file-drop input { display: none; }
+  .file-drop.has-file { color: var(--red-700); border-color: var(--red-500); border-style: solid; background: var(--red-100); }
+  .btn {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    border-radius: var(--radius);
+    padding: 9px 14px;
+    cursor: pointer;
+    color: #fff;
+    background: var(--red-600);
+    width: 100%;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+  .btn:hover { background: var(--red-700); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { background: var(--ink-faint); cursor: not-allowed; box-shadow: none; }
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--red-700);
+    border: 1px solid var(--border-strong);
+    width: auto;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    border-radius: 999px;
+    box-shadow: none;
+  }
+  .btn-ghost:hover { background: var(--red-100); }
+  .status-line { font-size: 12px; margin-top: 9px; min-height: 16px; }
+  .status-line.err { color: var(--red-700); }
+  .status-line.ok { color: var(--ink-soft); }
+
+  .months-list { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .months-list h3 { font-size: 11px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; margin: 0 0 8px; }
+  .month-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; padding: 5px 2px; color: var(--ink);
+    border-bottom: 1px solid var(--bg-soft);
+  }
+  .month-chip:last-child { border-bottom: none; }
+  .month-chip .del { font-size: 11px; color: var(--ink-faint); background: none; border: none; cursor: pointer; padding: 3px 8px; border-radius: 999px; }
+  .month-chip .del:hover { color: var(--red-700); background: var(--red-100); }
+  .month-chip .del.confirm { color: #fff; background: var(--red-600); }
+
+  /* ---------- Toolbar / summary ---------- */
+  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  .month-select-wrap label { display: block; font-size: 11px; color: var(--ink-soft); margin-bottom: 4px; letter-spacing: 0.02em; }
+  .month-select-wrap select {
+    min-width: 220px; font-size: 14.5px; font-weight: 600; color: var(--red-900);
+    padding: 9px 12px; border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  }
+  .empty-note { color: var(--ink-soft); font-size: 13.5px; background: var(--surface-raised); border: 1px solid var(--border); padding: 16px 18px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .summary-card {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md); padding: 16px 18px 15px; border-left: 3px solid var(--red-500);
+  }
+  .summary-card .label { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 8px; }
+  .summary-card .value { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--red-900); letter-spacing: -0.01em; }
+  .summary-card .value.neg { color: var(--negative); }
+  .summary-card .sub { font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+
+  /* ---------- Charts ---------- */
+  .chart-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .chart-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 18px 20px; }
+  .chart-card h3 { font-family: var(--font-serif); font-size: 14px; font-weight: 600; color: var(--red-900); margin: 0 0 12px; }
+  .chart-card .chart-box { position: relative; height: 230px; }
+
+  /* ---------- Table ---------- */
+  .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  .result-count { font-size: 12.5px; color: var(--ink-soft); }
+  .table-scroll {
+    overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface-raised); box-shadow: var(--shadow-md);
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--red-700);
+    background: var(--bg-soft);
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border-strong);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead tr:first-child th:first-child { border-top-left-radius: var(--radius-lg); }
+  thead tr:first-child th:last-child { border-top-right-radius: var(--radius-lg); }
+  thead th .arrow { font-size: 10px; color: var(--red-500); margin-left: 4px; }
+  thead tr.filter-row th { cursor: default; padding: 7px 9px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  thead tr.filter-row select, thead tr.filter-row input { font-size: 12px; padding: 5px 7px; }
+  .num-filter { display: flex; gap: 4px; }
+  .num-filter input { width: 62px; }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: var(--bg-soft); }
+  tbody tr:hover { background: var(--red-100); }
+  td.num, th.num { text-align: right; font-family: var(--font-mono); }
+  td.scheme { white-space: normal; max-width: 320px; }
+  .ns-pos { color: var(--positive); font-weight: 600; }
+  .ns-neg { color: var(--negative); font-weight: 600; }
+  .ns-na { color: var(--ink-faint); font-style: italic; font-weight: 400; }
+
+  .pagination { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 12px; font-size: 12.5px; color: var(--ink-soft); }
+  .pagination button {
+    background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 999px;
+    padding: 5px 13px; cursor: pointer; font-size: 12.5px; color: var(--ink); box-shadow: var(--shadow-sm);
+  }
+  .pagination button:hover:not(:disabled) { background: var(--red-100); }
+  .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .access-banner {
+    background: var(--red-100); border: 1px solid var(--border-strong); color: var(--red-900);
+    border-radius: var(--radius); padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .upload-card { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" id="themeToggle" type="button">
+    <span class="icon" id="themeIcon">🌙</span><span id="themeLabel">Dark mode</span>
+  </button>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>Net Sales Dashboard</h1>
+        <p>Monthly industry AUM &amp; NAV data, resolved into scheme-level net sales across AMCs and categories.</p>
+      </div>
+    </div>
+
+    <div class="upload-card">
+      <h2>Upload monthly data</h2>
+      <div class="field-row pin-row" id="pinRow">
+        <input type="password" id="pinInput" placeholder="Upload PIN" autocomplete="off">
+      </div>
+      <div class="lock-status" id="lockStatus">🔒 Enter your PIN to enable uploads</div>
+      <div class="field-row">
+        <select id="uploadMonth"></select>
+        <input type="number" id="uploadYear" placeholder="Year" min="2000" max="2100">
+      </div>
+      <label class="file-drop" id="fileDrop">
+        <span id="fileDropLabel">Choose Excel file (.xlsx / .xls / .csv)</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      </label>
+      <button class="btn" id="uploadBtn" disabled>Upload / replace this month</button>
+      <div class="status-line" id="uploadStatus"></div>
+      <div class="months-list">
+        <h3 id="monthsListTitle">Uploaded months</h3>
+        <div id="monthsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="accessBanner" style="display:none" class="access-banner"></div>
+
+  <div class="toolbar">
+    <div class="month-select-wrap">
+      <label for="monthSelect">Viewing month</label>
+      <select id="monthSelect"></select>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-ghost" id="exportBtn" style="display:none">Export view as CSV</button>
+  </div>
+
+  <div id="emptyState" class="empty-note" style="display:none"></div>
+
+  <div id="dashboardBody" style="display:none">
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Net sales by category</h3>
+        <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+  </div>
+      <div class="chart-card">
+        <h3>Top 10 AMCs by net sales</h3>
+        <div class="chart-box"><canvas id="amcChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="table-toolbar">
+      <div class="result-count" id="resultCount"></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr id="headerRow"></tr>
+          <tr class="filter-row" id="filterRow"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var CHUNK_SIZE = 400;
+  var REQUIRED_HEADERS = ['amc name', 'scheme name', 'category', 'aum', 'nav'];
+
+  var columns = [
+    { key: 'amc', label: 'AMC Name', type: 'string' },
+    { key: 'scheme', label: 'Scheme Name', type: 'string' },
+    { key: 'category', label: 'Category', type: 'string' },
+    { key: 'aum', label: 'AUM', type: 'number' },
+    { key: 'nav', label: 'NAV', type: 'number' },
+    { key: 'netSales', label: 'Net Sales', type: 'number' }
+  ];
+
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAis0xCBQTYnYp_XlUUGNvvQCSOHv5xQoc",
+    authDomain: "industry-nest-sales.firebaseapp.com",
+    projectId: "industry-nest-sales",
+    storageBucket: "industry-nest-sales.firebasestorage.app",
+    messagingSenderId: "586573329640",
+    appId: "1:586573329640:web:8750ad42c83ad46c63c55d"
+  };
+  var EDITOR_EMAIL = 'uploader@industry-nest-sales.local';
+
+  var state = {
+    db: null,
+    auth: null,
+    isEditor: false,
+    monthsMeta: [],     // [{id, year, month, monthLabel, rowCount, chunkCount}], ascending
+    selectedMonthKey: null,
+    currentRows: [],     // computed rows for selected month (with netSales)
+    filters: { amc: 'all', category: 'all', schemeText: '', aumMin: '', aumMax: '', navMin: '', navMax: '', netMin: '', netMax: '' },
+    sort: { key: 'netSales', dir: 'desc' },
+    page: 1,
+    pageSize: 50,
+    deleteConfirmId: null,
+    categoryChart: null,
+    amcChart: null
+  };
+
+  // ---------------- utilities ----------------
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function monthKey(year, month) { return year + '-' + pad2(month); }
+
+  function monthLabelFor(year, month) { return MONTH_NAMES[month - 1] + ' ' + year; }
+
+  function fmtNum(n, decimals) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    var d = decimals === undefined ? 2 : decimals;
+    var neg = n < 0;
+    var abs = Math.abs(n);
+    var fixed = abs.toFixed(d);
+    var parts = fixed.split('.');
+    var intPart = parts[0];
+    var last3 = intPart.length > 3 ? intPart.slice(-3) : intPart;
+    var rest = intPart.length > 3 ? intPart.slice(0, -3) : '';
+    var grouped = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3 : last3;
+    var out = grouped + (d > 0 ? '.' + parts[1] : '');
+    return (neg ? '-' : '') + out;
+  }
+
+  function normHeader(h) { return String(h || '').trim().toLowerCase(); }
+
+  function schemeKey(amc, scheme) {
+    return normHeader(amc) + '||' + normHeader(scheme);
+  }
+
+  function setStatus(msg, kind) {
+    var el = document.getElementById('uploadStatus');
+    el.textContent = msg || '';
+    el.className = 'status-line' + (kind ? ' ' + kind : '');
+  }
+
+  // ---------------- firebase init ----------------
+  function initFirebase() {
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      state.auth = firebase.auth();
+      state.db = firebase.firestore();
+    } catch (e) {
+      showBanner('Could not connect to the data service (' + (e && e.message ? e.message : 'unknown error') + '). Check your internet connection and reload.');
+      return;
+    }
+
+    document.getElementById('exportBtn').style.display = 'inline-block';
+
+    state.auth.onAuthStateChanged(function (user) {
+      state.isEditor = !!user;
+      updateLockUi();
+      renderMonthsList();
+    });
+
+    subscribeMonths();
+  }
+
+  function updateLockUi() {
+    var lock = document.getElementById('lockStatus');
+    var pinRow = document.getElementById('pinRow');
+    if (state.isEditor) {
+      lock.textContent = '🔓 Unlocked — you can upload and remove months';
+      lock.classList.add('unlocked');
+      pinRow.style.display = 'none';
+    } else {
+      lock.textContent = '🔒 Enter your PIN to enable uploads';
+      lock.classList.remove('unlocked');
+      pinRow.style.display = 'flex';
+    }
+  }
+
+  async function ensureEditorAuth() {
+    if (state.isEditor && state.auth.currentUser) return true;
+    var pin = document.getElementById('pinInput').value.trim();
+    if (!pin) { setStatus('Enter your upload PIN first.', 'err'); return false; }
+    try {
+      await state.auth.signInWithEmailAndPassword(EDITOR_EMAIL, pin);
+      return true;
+    } catch (e) {
+      if (e && (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found')) {
+        setStatus('Incorrect PIN.', 'err');
+      } else {
+        setStatus('Could not verify PIN: ' + (e && e.message ? e.message : 'unknown error'), 'err');
+      }
+      return false;
+    }
+  }
+
+  function showBanner(msg) {
+    var b = document.getElementById('accessBanner');
+    b.textContent = msg;
+    b.style.display = 'block';
+  }
+
+  // ---------------- month dropdowns ----------------
+  function buildUploadMonthSelect() {
+    var sel = document.getElementById('uploadMonth');
+    sel.innerHTML = '';
+    MONTH_NAMES.forEach(function (name, i) {
+      var opt = document.createElement('option');
+      opt.value = i + 1;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    var now = new Date();
+    sel.value = now.getMonth() + 1;
+    document.getElementById('uploadYear').value = now.getFullYear();
+  }
+
+  function buildViewMonthSelect() {
+    var sel = document.getElementById('monthSelect');
+    var prevSelected = state.selectedMonthKey;
+    sel.innerHTML = '';
+
+    var selectable = state.monthsMeta.slice(1); // exclude earliest — no prior month to compare
+    if (selectable.length === 0) {
+      sel.disabled = true;
+      var opt = document.createElement('option');
+      opt.textContent = state.monthsMeta.length === 1 ? 'Upload one more month to see net sales' : 'No data uploaded yet';
+      sel.appendChild(opt);
+      document.getElementById('dashboardBody').style.display = 'none';
+      var empty = document.getElementById('emptyState');
+      empty.style.display = 'block';
+      empty.textContent = state.monthsMeta.length === 1
+        ? 'One month (' + state.monthsMeta[0].monthLabel + ') is uploaded. Net sales needs at least two consecutive months, so upload the next month to see figures.'
+        : 'No monthly data uploaded yet. Use the panel at the top right to upload the first month\'s Excel sheet.';
+      state.selectedMonthKey = null;
+      return;
+    }
+
+    sel.disabled = false;
+    document.getElementById('emptyState').style.display = 'none';
+
+    selectable.forEach(function (m) {
+      var opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.monthLabel;
+      sel.appendChild(opt);
+    });
+
+    var stillExists = selectable.some(function (m) { return m.id === prevSelected; });
+    var toSelect = stillExists ? prevSelected : selectable[selectable.length - 1].id;
+    sel.value = toSelect;
+    if (toSelect !== state.selectedMonthKey || !stillExists) {
+      onMonthChange(toSelect);
+    } else {
+      onMonthChange(toSelect); // refresh in case underlying data changed
+    }
+  }
+
+  function renderMonthsList() {
+    var wrap = document.getElementById('monthsList');
+    wrap.innerHTML = '';
+    if (state.monthsMeta.length === 0) {
+      wrap.innerHTML = '<div style="font-size:12px;color:var(--ink-faint)">None yet</div>';
+      return;
+    }
+    state.monthsMeta.slice().reverse().forEach(function (m) {
+      var row = document.createElement('div');
+      row.className = 'month-chip';
+      var label = document.createElement('span');
+      label.textContent = m.monthLabel + ' · ' + (m.rowCount || 0) + ' schemes';
+      row.appendChild(label);
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = state.deleteConfirmId === m.id ? 'Confirm delete' : 'Remove';
+      if (state.deleteConfirmId === m.id) del.className += ' confirm';
+      del.onclick = function () { handleDeleteClick(m.id); };
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+
+  async function handleDeleteClick(id) {
+    if (state.deleteConfirmId === id) {
+      state.deleteConfirmId = null;
+      var ok = await ensureEditorAuth();
+      if (!ok) { renderMonthsList(); return; }
+      deleteMonth(id);
+    } else {
+      state.deleteConfirmId = id;
+      renderMonthsList();
+      setTimeout(function () {
+        if (state.deleteConfirmId === id) { state.deleteConfirmId = null; renderMonthsList(); }
+      }, 4000);
+    }
+  }
+
+  async function deleteMonth(id) {
+    if (!state.db) return;
+    try {
+      var meta = state.monthsMeta.find(function (m) { return m.id === id; });
+      var chunkCount = meta ? meta.chunkCount : 0;
+      var deletes = [];
+      for (var i = 0; i < chunkCount; i++) {
+        deletes.push(state.db.doc('months/' + id + '/chunks/' + i).delete());
+      }
+      await Promise.all(deletes);
+      await state.db.doc('months/' + id).delete();
+    } catch (e) {
+      var msg = (e && e.code === 'permission-denied') ? 'Your PIN session expired — enter your PIN again and retry.' : ('Could not delete that month: ' + (e && e.message ? e.message : 'unknown error'));
+      setStatus(msg, 'err');
+    }
+  }
+
+  // ---------------- db subscription ----------------
+  function subscribeMonths() {
+    state.db.collection('months').onSnapshot(function (snap) {
+      var list = [];
+      snap.docs.forEach(function (d) {
+        if (!d.exists) return;
+        var data = d.data();
+        list.push({
+          id: d.id,
+          year: data.year,
+          month: data.month,
+          monthLabel: data.monthLabel || monthLabelFor(data.year, data.month),
+          rowCount: data.rowCount || 0,
+          chunkCount: data.chunkCount || 0
+        });
+      });
+      list.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+      state.monthsMeta = list;
+      renderMonthsList();
+      buildViewMonthSelect();
+    }, function (err) {
+      showBanner('Could not load shared data live (' + err.code + '). Try reopening this page.');
+    });
+  }
+
+  async function loadMonthRows(meta) {
+    if (!meta) return [];
+    if (!state.db) return [];
+    var coll = state.db.collection('months/' + meta.id + '/chunks');
+    var snap = await coll.get();
+    var rows = [];
+    snap.docs.forEach(function (d) {
+      if (!d.exists) return;
+      var data = d.data();
+      if (data && Array.isArray(data.rows)) rows = rows.concat(data.rows);
+    });
+    return rows;
+  }
+
+  // ---------------- net sales computation ----------------
+  async function onMonthChange(id) {
+    state.selectedMonthKey = id;
+    var idx = state.monthsMeta.findIndex(function (m) { return m.id === id; });
+    if (idx < 1) { state.currentRows = []; renderAll(); return; }
+    var curMeta = state.monthsMeta[idx];
+    var prevMeta = state.monthsMeta[idx - 1];
+
+    document.getElementById('dashboardBody').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('emptyState').textContent = 'Loading ' + curMeta.monthLabel + '…';
+
+    var curRows, prevRows;
+    try {
+      curRows = await loadMonthRows(curMeta);
+      prevRows = await loadMonthRows(prevMeta);
+    } catch (e) {
+      document.getElementById('emptyState').textContent = 'Could not load data for this month: ' + (e && e.message ? e.message : 'unknown error');
+      return;
+    }
+
+    var prevMap = {};
+    prevRows.forEach(function (r) { prevMap[schemeKey(r.amc, r.scheme)] = r; });
+
+    var computed = curRows.map(function (r) {
+      var prev = prevMap[schemeKey(r.amc, r.scheme)];
+      var netSales = null;
+      if (prev && prev.nav && r.nav != null && r.aum != null) {
+        netSales = r.aum - (prev.aum * (r.nav / prev.nav));
+      }
+      return { amc: r.amc, scheme: r.scheme, category: r.category, aum: r.aum, nav: r.nav, netSales: netSales };
+    });
+
+    state.currentRows = computed;
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('dashboardBody').style.display = 'block';
+    state.page = 1;
+    renderAll();
+  }
+
+  // ---------------- filters / sort ----------------
+  function uniqueValues(rows, key) {
+    var seen = {}; var out = [];
+    rows.forEach(function (r) {
+      var v = r[key] || '';
+      if (v && !seen[v]) { seen[v] = true; out.push(v); }
+    });
+    out.sort();
+    return out;
+  }
+
+  function buildFilterRow() {
+    var tr = document.getElementById('filterRow');
+    tr.innerHTML = '';
+
+    columns.forEach(function (col) {
+      var th = document.createElement('th');
+      if (col.key === 'amc' || col.key === 'category') {
+        var sel = document.createElement('select');
+        var optAll = document.createElement('option');
+        optAll.value = 'all'; optAll.textContent = 'All';
+        sel.appendChild(optAll);
+        uniqueValues(state.currentRows, col.key).forEach(function (v) {
+          var o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o);
+        });
+        sel.value = state.filters[col.key];
+        sel.onchange = function () { state.filters[col.key] = sel.value; state.page = 1; renderTable(); };
+        th.appendChild(sel);
+      } else if (col.key === 'scheme') {
+        var inp = document.createElement('input');
+        inp.type = 'text'; inp.placeholder = 'Search scheme…';
+        inp.value = state.filters.schemeText;
+        inp.oninput = function () { state.filters.schemeText = inp.value; state.page = 1; renderTable(); };
+        th.appendChild(inp);
+      } else {
+        var wrap = document.createElement('div');
+        wrap.className = 'num-filter';
+        var minKey = col.key + 'Min', maxKey = col.key === 'netSales' ? 'netMin' : col.key + 'Min';
+        var lo = col.key === 'netSales' ? 'netMin' : col.key + 'Min';
+        var hi = col.key === 'netSales' ? 'netMax' : col.key + 'Max';
+        var iMin = document.createElement('input');
+        iMin.type = 'number'; iMin.placeholder = 'min'; iMin.value = state.filters[lo];
+        iMin.oninput = function () { state.filters[lo] = iMin.value; state.page = 1; renderTable(); };
+        var iMax = document.createElement('input');
+        iMax.type = 'number'; iMax.placeholder = 'max'; iMax.value = state.filters[hi];
+        iMax.oninput = function () { state.filters[hi] = iMax.value; state.page = 1; renderTable(); };
+        wrap.appendChild(iMin); wrap.appendChild(iMax);
+        th.appendChild(wrap);
+      }
+      tr.appendChild(th);
+    });
+    }
+
+  function buildHeaderRow() {
+    var tr = document.getElementById('headerRow');
+    tr.innerHTML = '';
+    columns.forEach(function (col) {
+      var th = document.createElement('th');
+      if (col.type === 'number') th.className = 'num';
+      var arrow = '';
+      if (state.sort.key === col.key) arrow = state.sort.dir === 'asc' ? ' ▲' : ' ▼';
+      th.innerHTML = col.label + (arrow ? '<span class="arrow">' + arrow.trim() + '</span>' : '');
+      th.onclick = function () {
+        if (state.sort.key === col.key) { state.sort.dir = state.sort.dir === 'asc' ? 'desc' : 'asc'; }
+        else { state.sort.key = col.key; state.sort.dir = col.type === 'number' ? 'desc' : 'asc'; }
+        buildHeaderRow();
+        renderTable();
+      };
+      tr.appendChild(th);
+    });
+  }
+
+  function applyFiltersSort() {
+    var f = state.filters;
+    var rows = state.currentRows.filter(function (r) {
+      if (f.amc !== 'all' && r.amc !== f.amc) return false;
+      if (f.category !== 'all' && r.category !== f.category) return false;
+      if (f.schemeText && normHeader(r.scheme).indexOf(normHeader(f.schemeText)) === -1) return false;
+      if (f.aumMin !== '' && !(r.aum >= parseFloat(f.aumMin))) return false;
+      if (f.aumMax !== '' && !(r.aum <= parseFloat(f.aumMax))) return false;
+      if (f.navMin !== '' && !(r.nav >= parseFloat(f.navMin))) return false;
+      if (f.navMax !== '' && !(r.nav <= parseFloat(f.navMax))) return false;
+      if (f.netMin !== '' && !(r.netSales !== null && r.netSales >= parseFloat(f.netMin))) return false;
+      if (f.netMax !== '' && !(r.netSales !== null && r.netSales <= parseFloat(f.netMax))) return false;
+      return true;
+    });
+
+    var key = state.sort.key, dir = state.sort.dir === 'asc' ? 1 : -1;
+    rows.sort(function (a, b) {
+      var av = a[key], bv = b[key];
+      if (av === null || av === undefined) av = dir === 1 ? Infinity : -Infinity;
+      if (bv === null || bv === undefined) bv = dir === 1 ? Infinity : -Infinity;
+      if (typeof av === 'string') return av.localeCompare(bv) * dir;
+      return (av - bv) * dir;
+    });
+    return rows;
+  }
+
+  // ---------------- rendering ----------------
+  function renderAll() {
+    buildFilterRow();
+    buildHeaderRow();
+    renderTable();
+    renderSummary();
+    renderCharts();
+  }
+
+  function renderSummary() {
+    var rows = state.currentRows;
+    var totalNet = 0, totalAum = 0, newCount = 0, matched = 0;
+    rows.forEach(function (r) {
+      totalAum += r.aum || 0;
+      if (r.netSales === null) newCount++;
+      else { totalNet += r.netSales; matched++; }
+    });
+    var cards = [
+      { label: 'Total net sales (matched schemes)', value: fmtNum(totalNet, 0), neg: totalNet < 0, sub: matched + ' schemes matched to prior month' },
+      { label: 'Total current AUM', value: fmtNum(totalAum, 0), neg: false, sub: 'as uploaded, ' + rows.length + ' schemes' },
+      { label: 'Schemes this month', value: '' + rows.length, neg: false, sub: 'across ' + uniqueValues(rows, 'amc').length + ' AMCs' },
+      { label: 'New / unmatched schemes', value: '' + newCount, neg: false, sub: 'no prior-month figure to compare' }
+    ];
+    var grid = document.getElementById('summaryGrid');
+    grid.innerHTML = '';
+    cards.forEach(function (c) {
+      var el = document.createElement('div');
+      el.className = 'summary-card';
+      el.innerHTML = '<div class="label">' + c.label + '</div><div class="value' + (c.neg ? ' neg' : '') + '">' + c.value + '</div><div class="sub">' + c.sub + '</div>';
+      grid.appendChild(el);
+    });
+  }
+
+  function renderTable() {
+    var rows = applyFiltersSort();
+    document.getElementById('resultCount').textContent = rows.length + ' of ' + state.currentRows.length + ' schemes shown';
+
+    var start = (state.page - 1) * state.pageSize;
+    var pageRows = rows.slice(start, start + state.pageSize);
+
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    pageRows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      var netHtml;
+      if (r.netSales === null) netHtml = '<span class="ns-na">NA — new scheme</span>';
+      else netHtml = '<span class="' + (r.netSales >= 0 ? 'ns-pos' : 'ns-neg') + '">' + (r.netSales >= 0 ? '+' : '') + fmtNum(r.netSales, 0) + '</span>';
+      tr.innerHTML =
+        '<td>' + escapeHtml(r.amc) + '</td>' +
+        '<td class="scheme">' + escapeHtml(r.scheme) + '</td>' +
+        '<td>' + escapeHtml(r.category) + '</td>' +
+        '<td class="num">' + fmtNum(r.aum, 2) + '</td>' +
+        '<td class="num">' + fmtNum(r.nav, 4) + '</td>' +
+        '<td class="num">' + netHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    var totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize));
+    if (state.page > totalPages) state.page = totalPages;
+    var pag = document.getElementById('pagination');
+    pag.innerHTML = '';
+    var prevBtn = document.createElement('button');
+    prevBtn.textContent = 'Previous';
+    prevBtn.disabled = state.page <= 1;
+    prevBtn.onclick = function () { state.page--; renderTable(); };
+    var info = document.createElement('span');
+    info.textContent = 'Page ' + state.page + ' of ' + totalPages;
+    var nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Next';
+    nextBtn.disabled = state.page >= totalPages;
+    nextBtn.onclick = function () { state.page++; renderTable(); };
+    pag.appendChild(prevBtn); pag.appendChild(info); pag.appendChild(nextBtn);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------------- charts ----------------
+  function chartPalette() {
+    var styles = getComputedStyle(document.documentElement);
+    return {
+      pos: styles.getPropertyValue('--red-600').trim() || '#B3273D',
+      neg: styles.getPropertyValue('--red-400').trim() || '#D9727E',
+      grid: styles.getPropertyValue('--border').trim() || '#eee',
+      text: styles.getPropertyValue('--ink-soft').trim() || '#666'
+    };
+  }
+
+  function renderCharts() {
+    if (typeof Chart === 'undefined') return;
+    var pal = chartPalette();
+    var rows = state.currentRows.filter(function (r) { return r.netSales !== null; });
+
+    // by category
+    var byCat = {};
+    rows.forEach(function (r) {
+      var c = r.category || 'Uncategorized';
+      byCat[c] = (byCat[c] || 0) + r.netSales;
+    });
+    var catEntries = Object.keys(byCat).map(function (k) { return [k, byCat[k]]; });
+    catEntries.sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+    catEntries = catEntries.slice(0, 8);
+
+    var catCtx = document.getElementById('categoryChart').getContext('2d');
+    if (state.categoryChart) state.categoryChart.destroy();
+    state.categoryChart = new Chart(catCtx, {
+      type: 'bar',
+      data: {
+        labels: catEntries.map(function (e) { return e[0]; }),
+        datasets: [{
+          data: catEntries.map(function (e) { return e[1]; }),
+          backgroundColor: catEntries.map(function (e) { return e[1] >= 0 ? pal.pos : pal.neg; }),
+          borderRadius: 2
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 } } },
+          y: { grid: { display: false }, ticks: { color: pal.text, font: { size: 11 } } }
+        }
+      }
+    });
+
+    // by AMC top 10
+    var byAmc = {};
+    rows.forEach(function (r) {
+      var a = r.amc || 'Unknown';
+      byAmc[a] = (byAmc[a] || 0) + r.netSales;
+    });
+    var amcEntries = Object.keys(byAmc).map(function (k) { return [k, byAmc[k]]; });
+    amcEntries.sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+    amcEntries = amcEntries.slice(0, 10);
+
+    var amcCtx = document.getElementById('amcChart').getContext('2d');
+    if (state.amcChart) state.amcChart.destroy();
+    state.amcChart = new Chart(amcCtx, {
+      type: 'bar',
+      data: {
+        labels: amcEntries.map(function (e) { return e[0]; }),
+        datasets: [{
+          data: amcEntries.map(function (e) { return e[1]; }),
+          backgroundColor: amcEntries.map(function (e) { return e[1] >= 0 ? pal.pos : pal.neg; }),
+          borderRadius: 2
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: pal.grid }, ticks: { color: pal.text, font: { size: 11 } } },
+          y: { grid: { display: false }, ticks: { color: pal.text, font: { size: 10.5 } } }
+        }
+      }
+    });
+  }
+
+  // ---------------- upload flow ----------------
+  var selectedFile = null;
+
+  function wireUploadUi() {
+    buildUploadMonthSelect();
+
+    var fileInput = document.getElementById('fileInput');
+    var fileDrop = document.getElementById('fileDrop');
+    var fileDropLabel = document.getElementById('fileDropLabel');
+    var uploadBtn = document.getElementById('uploadBtn');
+
+    fileInput.addEventListener('change', function () {
+      selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+      if (selectedFile) {
+        fileDropLabel.textContent = selectedFile.name;
+        fileDrop.classList.add('has-file');
+        uploadBtn.disabled = false;
+      } else {
+        fileDropLabel.textContent = 'Choose Excel file (.xlsx / .xls / .csv)';
+        fileDrop.classList.remove('has-file');
+        uploadBtn.disabled = true;
+      }
+      setStatus('');
+    });
+
+    uploadBtn.addEventListener('click', handleUpload);
+  }
+
+  function parseWorkbookRows(workbook) {
+    var sheetName = workbook.SheetNames[0];
+    var sheet = workbook.Sheets[sheetName];
+    var json = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+    if (!json.length) throw new Error('The sheet has no data rows.');
+
+    var sampleKeys = Object.keys(json[0]);
+    var headerMap = {}; // normalized -> original key
+    sampleKeys.forEach(function (k) { headerMap[normHeader(k)] = k; });
+
+    var missing = REQUIRED_HEADERS.filter(function (h) { return !(h in headerMap); });
+    if (missing.length) {
+      throw new Error('Missing required column(s): ' + missing.join(', ') + '. Expected: AMC Name, Scheme Name, Category, AUM, NAV.');
+    }
+
+    var rows = [];
+    var skipped = 0;
+    json.forEach(function (obj) {
+      var amc = obj[headerMap['amc name']];
+      var scheme = obj[headerMap['scheme name']];
+      var category = obj[headerMap['category']];
+      var aumRaw = obj[headerMap['aum']];
+      var navRaw = obj[headerMap['nav']];
+
+      var aum = typeof aumRaw === 'number' ? aumRaw : parseFloat(String(aumRaw || '').replace(/,/g, ''));
+      var nav = typeof navRaw === 'number' ? navRaw : parseFloat(String(navRaw || '').replace(/,/g, ''));
+
+      if (!amc || !scheme || isNaN(aum) || isNaN(nav)) { skipped++; return; }
+      rows.push({
+        amc: String(amc).trim(),
+        scheme: String(scheme).trim(),
+        category: category ? String(category).trim() : 'Uncategorized',
+        aum: aum,
+        nav: nav
+      });
+    });
+
+    if (!rows.length) throw new Error('No valid rows found — check that AMC Name, Scheme Name, AUM and NAV are filled in.');
+    return { rows: rows, skipped: skipped };
+  }
+
+  function chunkArray(arr, size) {
+    var out = [];
+    for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) return;
+    if (!state.db) { setStatus('Could not connect to the data service. Check your connection and reload.', 'err'); return; }
+
+    var month = parseInt(document.getElementById('uploadMonth').value, 10);
+    var year = parseInt(document.getElementById('uploadYear').value, 10);
+    if (!year || year < 2000 || year > 2100) { setStatus('Enter a valid year.', 'err'); return; }
+
+    var uploadBtn = document.getElementById('uploadBtn');
+    uploadBtn.disabled = true;
+
+    var authed = await ensureEditorAuth();
+    if (!authed) { uploadBtn.disabled = false; return; }
+
+    setStatus('Reading file…', 'ok');
+
+    try {
+      var buf = await selectedFile.arrayBuffer();
+      var workbook = XLSX.read(buf, { type: 'array' });
+      var parsed = parseWorkbookRows(workbook);
+
+      var id = monthKey(year, month);
+      setStatus('Saving ' + parsed.rows.length + ' schemes for ' + monthLabelFor(year, month) + '…', 'ok');
+
+      var existing = await state.db.doc('months/' + id).get();
+      var oldChunkCount = existing.exists ? (existing.data().chunkCount || 0) : 0;
+
+      var chunks = chunkArray(parsed.rows, CHUNK_SIZE);
+
+      var writes = chunks.map(function (c, i) {
+        return state.db.doc('months/' + id + '/chunks/' + i).set({ rows: c });
+      });
+      await Promise.all(writes);
+
+      if (oldChunkCount > chunks.length) {
+        var extraDeletes = [];
+        for (var i = chunks.length; i < oldChunkCount; i++) {
+          extraDeletes.push(state.db.doc('months/' + id + '/chunks/' + i).delete());
+        }
+        await Promise.all(extraDeletes);
+      }
+
+      await state.db.doc('months/' + id).set({
+        year: year,
+        month: month,
+        monthLabel: monthLabelFor(year, month),
+        rowCount: parsed.rows.length,
+        chunkCount: chunks.length,
+        updatedAt: new Date().toISOString()
+      });
+
+      var skippedNote = parsed.skipped ? (' (' + parsed.skipped + ' row(s) skipped for missing data)') : '';
+      setStatus('Saved ' + monthLabelFor(year, month) + skippedNote + '.', 'ok');
+      selectedFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileDropLabel').textContent = 'Choose Excel file (.xlsx / .xls / .csv)';
+      document.getElementById('fileDrop').classList.remove('has-file');
+    } catch (e) {
+      var code = e && e.code;
+      if (code === 'permission-denied') {
+        setStatus('Your PIN session expired — enter your PIN again and retry.', 'err');
+      } else {
+        setStatus((e && e.message) ? e.message : 'Upload failed. Please try again.', 'err');
+      }
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  }
+
+  // ---------------- export ----------------
+  function handleExport() {
+    var rows = applyFiltersSort();
+    var header = ['AMC Name', 'Scheme Name', 'Category', 'AUM', 'NAV', 'Net Sales'];
+    var lines = [header.join(',')];
+    rows.forEach(function (r) {
+      var line = [r.amc, r.scheme, r.category, r.aum, r.nav, r.netSales === null ? 'NA' : r.netSales]
+        .map(function (v) {
+          var s = String(v == null ? '' : v);
+          return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }).join(',');
+      lines.push(line);
+    });
+    var csv = lines.join('\n');
+    var monthLabel = state.selectedMonthKey || 'export';
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'net-sales-' + monthLabel + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---------------- theme toggle ----------------
+  function getStoredTheme() {
+    try { return window.localStorage.getItem('nsd-theme'); } catch (e) { return null; }
+  }
+  function storeTheme(v) {
+    try { window.localStorage.setItem('nsd-theme', v); } catch (e) { /* per-viewer convenience only */ }
+  }
+  function applyTheme(theme) {
+    var root = document.documentElement;
+    if (theme === 'dark') {
+      root.setAttribute('data-theme', 'dark');
+      document.getElementById('themeIcon').textContent = '☀️';
+      document.getElementById('themeLabel').textContent = 'Light mode';
+    } else {
+      root.setAttribute('data-theme', 'light');
+      document.getElementById('themeIcon').textContent = '🌙';
+      document.getElementById('themeLabel').textContent = 'Dark mode';
+    }
+    if (state.categoryChart || state.amcChart) renderCharts();
+  }
+  function initTheme() {
+    var stored = getStoredTheme();
+    var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme(theme);
+    document.getElementById('themeToggle').addEventListener('click', function () {
+      var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      var next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      storeTheme(next);
+    });
+  }
+
+  // ---------------- boot ----------------
+  document.addEventListener('DOMContentLoaded', function () {
+    initTheme();
+    wireUploadUi();
+    document.getElementById('monthSelect').addEventListener('change', function (e) {
+      onMonthChange(e.target.value);
+    });
+    document.getElementById('exportBtn').addEventListener('click', handleExport);
+    initFirebase();
+  });
+})();
+</script>
+</body>
+</html>
+  
